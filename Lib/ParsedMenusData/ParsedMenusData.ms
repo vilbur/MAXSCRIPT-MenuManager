@@ -33,13 +33,13 @@ struct ParsedMenusData_v
 		/* PARSE mcr FILES */ 
 		for macroscript_file in macroscripts_to_import do
 		(
-			format "PARSE FILE: %\n" macroscript_file
+			--format "PARSE FILE: %\n" macroscript_file
 			MacroParser 	= MacroScriptFileParser_v (macroscript_file)
 			
 			/* PASRSE macroscripts in mcr file */ 
 			for _MacroScript in MacroParser.MacroScripts where _MacroScript.isMenuItem() do
 			(
-				format "   MACRO: %\n" _MacroScript.macro_name
+				--format "   MACRO: %\n" _MacroScript.macro_name
 				this.addItemToMenu (_MacroScript.category) (_MacroScript.macro_name) (_MacroScript.getTitle())  --return
 			)
 			

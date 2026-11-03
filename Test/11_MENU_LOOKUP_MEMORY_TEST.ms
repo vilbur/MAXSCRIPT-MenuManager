@@ -36,8 +36,9 @@ fileIn (getFilenamePath (getSourceFileName()) + "../Lib/MenuBuildManager/MenuBui
 	gc light:true
 	local heap_delta = (heapSize - heapFree) - heap_before
 
-	if not manager.saved_menus_data_loaded then throw "Saved menu cache was not marked as loaded."
-	if manager.saved_menus_data.count != source_data.count then throw "Saved menu cache count changed."
+	if not manager.saved_menu_lookup_loaded then throw "Saved menu cache was not marked as loaded."
+	if manager.saved_menu_lookup_data.count != source_data.count then throw "Saved menu cache count changed."
+	if manager.saved_menus_data.count != 0 then throw "Lookup data polluted newly built menu data."
 	format "Ran 1000 misses against 10000 saved actions in % ms. Heap delta after first load: % bytes.\n" (timeStamp() - started_at) heap_delta
 	try (deleteFile cache_path) catch (ok)
 )

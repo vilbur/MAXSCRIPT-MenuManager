@@ -1293,12 +1293,18 @@ struct MenuDefinition_v
 				quad_modifier:this.quad_modifier \
 				quad_position:normalized_position \
 				quad_context_id:this.quad_context_id \
-				manager:this.manager \
+				manager:undefined \
 				qmnx_clear_directory:this.qmnx_clear_directory \
 				clear_default_menu:this.clear_default_menu
 
-			append quad_array found_quad
-			quad_array = this.reorderQuadArray quad_array
+			local insert_index = 1
+			local new_order_index = this.getQuadOrderIndex normalized_position
+			for existing_quad in quad_array do
+			(
+				if this.getQuadOrderIndex existing_quad.quad_position < new_order_index then
+					insert_index += 1
+			)
+			insertItem found_quad quad_array insert_index
 			this.setActiveData quad_array
 		)
 
@@ -1413,3 +1419,5 @@ struct MenuDefinition_v
 		)
 	)
 )
+
+

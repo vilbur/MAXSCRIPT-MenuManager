@@ -98,10 +98,10 @@ struct MenuManager_v
 	/** ALIAS for MenuBuildManager.quad() "./../Lib/MenuBuildManager/MenuBuildManager.ms"
 	  
 	  */
-	function quad title clear_default_menu:false qmnx_clear_directory:undefined =
+	function quad title clear_default_menu:false qmnx_clear_directory:undefined load_native_items:true =
 	(
 		--format "\n"; print "MenuManager_v.quad()"
-		MenuBuildManager.quad title clear_default_menu:clear_default_menu qmnx_clear_directory:qmnx_clear_directory
+		this.MenuBuildManager.quad title clear_default_menu:clear_default_menu qmnx_clear_directory:qmnx_clear_directory load_native_items:load_native_items
 	),
 	
 	/** Add .mcr files to menus
@@ -269,12 +269,19 @@ struct MenuManager_v
 		--this._createQuads(this._setQuadConfigFiles())
 		
 		--quad_cfg_files = this._setQuadConfigFiles()
-		QuadBuildManager = MenuBuildManager_v()
+		local quad_build_manager = MenuBuildManager_v()
+		local quad_menu_new = undefined
+		local filename = ""
+		local mod_keys_by_filename = undefined
+		global MenuBuildManager
+		MenuBuildManager = quad_build_manager
 
 		--this._setQuadConfigFiles()
 		
 		for quad_cfg_file in this.quad_cfg_files do
 		(
+			format "quad_cfg_file: %\n" quad_cfg_file
+
 			
 			configQuad1 = undefined
 			configQuad2 = undefined
@@ -283,7 +290,7 @@ struct MenuManager_v
 			
 			filename = getFilenameFile(quad_cfg_file)
 			
-			QuadMenuNew = QuadBuildManager.quad ("_"+filename) --type:#quad
+			quad_menu_new = quad_build_manager.quad ("_"+filename) load_native_items:false
 			--QuadMenuNew = QuadBuildManager.menu ("_"+filename) type:#quad
 			--QuadMenuNew = QuadBuildManager.menu (filename) type:#quad
 			--format "QuadMenuNew: %\n" QuadMenuNew
@@ -303,22 +310,27 @@ struct MenuManager_v
 				 SET MODIFIER HOTKEYS KEYS E.G.: CTRL + RMB
 			--------------------------------------------------------------------------------*/
 			if ( mod_keys_by_filename = this._normalizeQuadModifier filename ) != undefined then 
-				QuadMenuNew.quad_modifier = mod_keys_by_filename
+				quad_menu_new.quad_modifier = mod_keys_by_filename
 			
 			
 			/*------------------------------------------------------------------------------
 				MODIFY QUADS BY CODE IN FILE
 			--------------------------------------------------------------------------------*/
-			if configQuad1 != undefined then configQuad1( QuadMenuNew.getQuad 1 )
-			if configQuad2 != undefined then configQuad2( QuadMenuNew.getQuad 2 )
-			if configQuad3 != undefined then configQuad3( QuadMenuNew.getQuad 3 )
-			if configQuad4 != undefined then configQuad4( QuadMenuNew.getQuad 4 )			
+			if configQuad1 != undefined then configQuad1( quad_menu_new.getQuad 1 )
+			if configQuad2 != undefined then configQuad2( quad_menu_new.getQuad 2 )
+			if configQuad3 != undefined then configQuad3( quad_menu_new.getQuad 3 )
+			if configQuad4 != undefined then configQuad4( quad_menu_new.getQuad 4 )
 		)
 		
 		/*------------------------------------------------------------------------------
 			BUILD AND INSTALL QUAD MENUS
 		--------------------------------------------------------------------------------*/
-		QuadBuildManager.installMenusNow update_quads:true load_default_cui_configuration:true
+		quad_build_manager.installMenusNow update_quads:true load_default_cui_configuration:true release_definitions:true
+		quad_menu_new = undefined
+		configQuad1 = undefined
+		configQuad2 = undefined
+		configQuad3 = undefined
+		configQuad4 = undefined
 	),
 	
 	
@@ -587,3 +599,6 @@ struct MenuManager_v
 		MenuBuildManager = MenuBuildManager_v()
 	)
 )
+
+
+

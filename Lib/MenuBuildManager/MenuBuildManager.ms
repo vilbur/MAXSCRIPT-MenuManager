@@ -45,7 +45,8 @@ struct MenuBuildManager_v
 	menus_data = #(),
 	wait_for_build = #(),
 	saved_menus_data = #(),
-	saved_menus_data_loaded = false,
+	saved_menu_lookup_data = #(),
+	saved_menu_lookup_loaded = false,
 	data_file_name = "MenuRebuilder_data.json",
 	data_folder_name = "MenuRebuilder_data",
 	menus_folder_name = "menus",
@@ -960,8 +961,8 @@ struct MenuBuildManager_v
 		if root_data != undefined then
 		(
 			quad_definition_array = this.getDefinitionData menu_definition
+			quad_menus_data = #()
 			root_data[#items] = #()
-			root_data[#quad_menus] = #()
 			if this.isArrayValue quad_definition_array then
 			(
 				if quad_definition_array.count > 0 and this.isMenuDefinitionLike quad_definition_array[1] then
@@ -969,7 +970,7 @@ struct MenuBuildManager_v
 					for quad_definition in quad_definition_array do
 					(
 						quad_data = this.buildSavedQuadDataFromDefinition quad_definition
-						append root_data[#quad_menus] quad_data
+						append quad_menus_data quad_data
 
 						if quad_data[#clear_default_menu] then
 						(
@@ -979,6 +980,7 @@ struct MenuBuildManager_v
 				)
 				else root_data[#items] = this.normalizeMenuItems quad_definition_array
 			)
+			root_data[#quad_menus] = quad_menus_data
 		)
 		root_data -- return
 	),
@@ -1006,13 +1008,13 @@ struct MenuBuildManager_v
 
 	function buildSavedMenusData =
 	(
-		this.saved_menus_data = #()
+		local built_menus_data = #()
 		for menu_definition in this.menus_data do
 		(
 			menu_data = this.buildSavedMenuDataFromDefinition menu_definition
-			if menu_data != undefined then append this.saved_menus_data menu_data
+			if menu_data != undefined then append built_menus_data menu_data
 		)
-		this.saved_menus_data = this.groupMenusUnderCustomMenuRoot this.saved_menus_data
+		this.saved_menus_data = this.groupMenusUnderCustomMenuRoot built_menus_data
 		this.saved_menus_data -- return
 	),
 
@@ -1772,25 +1774,29 @@ struct MenuBuildManager_v
 		found_menu_data = undefined
 		resolved_title = this.resolveDefaultQuadTitle menu_title
 
-		/* Keep the first complete disk load on this manager. Reloading the full
-		   native data file for every requested menu exhausts memory on large sets. */
-		if not this.saved_menus_data_loaded then
+		/* Keep disk data separate from newly built data. Reloading the complete
+		   native file per menu exhausts memory, while putting it in saved_menus_data
+		   prevents buildMenus() from building the new definitions. */
+		if not this.saved_menu_lookup_loaded then
 		(
-			if this.saved_menus_data.count == 0 then
-				this.saved_menus_data = this.loadSavedMenusDataFromJson()
-			this.saved_menus_data_loaded = true
+			if this.saved_menus_data.count > 0 then
+				this.saved_menu_lookup_data = this.saved_menus_data
+			else
+				this.saved_menu_lookup_data = this.loadSavedMenusDataFromJson()
+			this.saved_menu_lookup_loaded = true
 		)
 
-		found_menu_data = this.findSavedMenuDataByTitleInArray resolved_title this.saved_menus_data
+		found_menu_data = this.findSavedMenuDataByTitleInArray resolved_title this.saved_menu_lookup_data
 
 		if found_menu_data == undefined and resolved_title != menu_title then
-			found_menu_data = this.findSavedMenuDataByTitleInArray menu_title this.saved_menus_data
+			found_menu_data = this.findSavedMenuDataByTitleInArray menu_title this.saved_menu_lookup_data
 
 		found_menu_data -- return
 	),
 
-	function createQuadDefinitionFromSavedQuadData quad_data root_menu_data =
+	function createQuadDefinitionFromSavedQuadData quad_data root_menu_data attach_manager:true =
 	(
+		definition_manager = if attach_manager then this else undefined
 		quad_clear_default_menu = this.getSavedClearDefaultMenu root_menu_data
 		if this.hasDictValueSafe quad_data #clear_default_menu then
 		(
@@ -1804,7 +1810,7 @@ struct MenuBuildManager_v
 			quad_modifier:(this.getSavedQuadModifier root_menu_data) \
 			quad_position:quad_data[#quad_position] \
 			quad_context_id:root_menu_data[#quad_context_id] \
-			manager:this \
+			manager:definition_manager \
 			qmnx_clear_directory:(this.getSavedQmnxClearDirectory root_menu_data) \
 			clear_default_menu:quad_clear_default_menu
 
@@ -1812,16 +1818,17 @@ struct MenuBuildManager_v
 	),
 
 
-	function createMenuDefinitionFromSavedMenuData menu_data =
+	function createMenuDefinitionFromSavedMenuData menu_data attach_manager:true =
 	(
+		definition_manager = if attach_manager then this else undefined
 		definition_type = this.getSavedMenuType menu_data
 		definition_data = menu_data[#items]
 		if definition_type == #quad and this.hasDictValueSafe menu_data #quad_menus and classOf menu_data[#quad_menus] == Array and menu_data[#quad_menus].count > 0 then
 		(
 			definition_data = #()
-			for quad_data in menu_data[#quad_menus] do append definition_data (this.createQuadDefinitionFromSavedQuadData quad_data menu_data)
+			for quad_data in menu_data[#quad_menus] do append definition_data (this.createQuadDefinitionFromSavedQuadData quad_data menu_data attach_manager:attach_manager)
 		)
-		menu_definition = MenuDefinition_v type:definition_type title:(this.getSavedMenuTitle menu_data) data:definition_data _data:definition_data quad_modifier:(this.getSavedQuadModifier menu_data) quad_position:(this.getMenuDataValue menu_data #quad_position undefined) quad_context_id:(this.getMenuDataValue menu_data #quad_context_id "") manager:this qmnx_clear_directory:(this.getSavedQmnxClearDirectory menu_data) clear_default_menu:(this.getSavedClearDefaultMenu menu_data)
+		menu_definition = MenuDefinition_v type:definition_type title:(this.getSavedMenuTitle menu_data) data:definition_data _data:definition_data quad_modifier:(this.getSavedQuadModifier menu_data) quad_position:(this.getMenuDataValue menu_data #quad_position undefined) quad_context_id:(this.getMenuDataValue menu_data #quad_context_id "") manager:definition_manager qmnx_clear_directory:(this.getSavedQmnxClearDirectory menu_data) clear_default_menu:(this.getSavedClearDefaultMenu menu_data)
 		menu_definition -- return
 	),
 
@@ -1854,7 +1861,7 @@ struct MenuBuildManager_v
 
 			if saved_menu_data != undefined then
 			(
-				menu_definition = this.createMenuDefinitionFromSavedMenuData saved_menu_data
+				menu_definition = this.createMenuDefinitionFromSavedMenuData saved_menu_data attach_manager:load_native_items
 
 				if clear_default_menu then
 				(
@@ -1876,6 +1883,7 @@ struct MenuBuildManager_v
 				)
 
 				definition_data = if load_native_items then undefined else #()
+				definition_manager = if load_native_items then this else undefined
 				menu_definition = MenuDefinition_v \
 					type:definition_type \
 					title:resolved_title \
@@ -1883,7 +1891,7 @@ struct MenuBuildManager_v
 					_data:definition_data \
 					quad_modifier:definition_quad_modifier \
 					quad_position:definition_quad_position \
-					manager:this \
+					manager:definition_manager \
 					qmnx_clear_directory:qmnx_clear_directory \
 					clear_default_menu:clear_default_menu
 			)
@@ -1891,7 +1899,7 @@ struct MenuBuildManager_v
 			append this.menus_data menu_definition
 		)
 
-		menu_definition.manager = this
+		menu_definition.manager = if load_native_items then this else undefined
 		this.waitForBuild menu_definition
 
 		menu_definition -- return
@@ -1902,9 +1910,9 @@ struct MenuBuildManager_v
 	Create quad menu definition.
 	Alias for menu title type:#quad.
 	*/
-	function quad title clear_default_menu:false qmnx_clear_directory:undefined =
+	function quad title clear_default_menu:false qmnx_clear_directory:undefined load_native_items:true =
 	(
-		this.menu title type:#quad clear_default_menu:clear_default_menu qmnx_clear_directory:qmnx_clear_directory -- return
+		this.menu title type:#quad clear_default_menu:clear_default_menu qmnx_clear_directory:qmnx_clear_directory load_native_items:load_native_items -- return
 	),
 
 
@@ -2274,10 +2282,12 @@ struct MenuBuildManager_v
 		this.saved_menus_data = this.groupMenusUnderCustomMenuRoot this.saved_menus_data
 		if this.merge_existing_data then
 		(
-			old_menus_data = this.loadSavedMenusDataFromJson()
+			old_menus_data = if this.saved_menu_lookup_loaded then this.saved_menu_lookup_data else this.loadSavedMenusDataFromJson()
 			this.saved_menus_data = this.mergeSavedMenusData old_menus_data this.saved_menus_data
 		)
 		saved_path = this.writeSavedMenusDataToJson this.saved_menus_data
+		this.saved_menu_lookup_data = this.saved_menus_data
+		this.saved_menu_lookup_loaded = true
 		format "Menu data saved to:\n%\n" saved_path
 		saved_path -- return
 	),
@@ -2547,13 +2557,27 @@ struct MenuBuildManager_v
 	),
 
 
+	function hasQueuedDefinition definitions menu_definition =
+	(
+		local was_found = false
+		local definition_title = menu_definition.title
+		local definition_type = this.normalizeMenuType menu_definition.type
+		for queued_definition in definitions while not was_found do
+		(
+			if queued_definition.title == definition_title then
+				if this.normalizeMenuType queued_definition.type == definition_type then was_found = true
+		)
+		was_found -- return
+	),
+
+
 	function waitForBuild menu_data =
 	(
 		if menu_data == undefined then format "MenuBuildManager_v.waitForBuild ignored undefined menu_data.\n"
 		else
 		(
-			if (findItem this.wait_for_build menu_data) == 0 then append this.wait_for_build menu_data
-			if (findItem this.menus_data menu_data) == 0 then append this.menus_data menu_data
+			if not (this.hasQueuedDefinition this.wait_for_build menu_data) then append this.wait_for_build menu_data
+			if not (this.hasQueuedDefinition this.menus_data menu_data) then append this.menus_data menu_data
 		)
 		menu_data -- return
 	),
@@ -2572,7 +2596,7 @@ struct MenuBuildManager_v
 		(
 			if menu_data != undefined then
 			(
-				if (findItem this.menus_data menu_data) == 0 then
+				if not (this.hasQueuedDefinition this.menus_data menu_data) then
 				(
 					append this.menus_data menu_data
 				)
@@ -2918,7 +2942,7 @@ struct MenuBuildManager_v
 	),
 
 
-	function installMenusNow save_cui_configuration:true update_quads:true load_default_cui_configuration:true =
+	function installMenusNow save_cui_configuration:true update_quads:true load_default_cui_configuration:true release_definitions:false =
 	(
 		--format "\n"
 		--print "MenuBuildManager_v.installMenusNow()"
@@ -2928,6 +2952,11 @@ struct MenuBuildManager_v
 		build data -> register callbacks -> LoadConfiguration triggers callbacks.
 		*/
 		this.build()
+		if release_definitions then
+		(
+			this.menus_data = #()
+			this.clearWaitForBuild()
+		)
 		this.registerCallback()
 
 		main_menu_updated = false
@@ -2990,7 +3019,6 @@ struct MenuBuildManager_v
 		format "\n";	print "MenuBuildManager_v.build()"
 		
 		this.applyWaitForBuildToMenusData()
-		this.buildMenus()
 		
 		timer_buildMenus = timeStamp()
 		this.buildMenus()
@@ -3033,4 +3061,6 @@ struct MenuBuildManager_v
 */
 
 MenuBuildManager = MenuBuildManager_v()
+
+
 
