@@ -1,6 +1,6 @@
 /*
 	MenuManagerUI.ms
-	Version: 1.05
+	Version: 1.08
 	UI for MENU_MANAGER_GLOBAL macro management
 	TreeView-based macroscript inspector + install/reset tools
 */
@@ -134,7 +134,7 @@ function toggleMenuEditor force:false tab_name:#none =
 
 struct MenuManagerUICallbacks_Struct
 (
-    version = 1.05,
+    version = 1.08,
 
     function buildMacroTree paths treeView =
     (
@@ -501,25 +501,200 @@ struct MenuManagerUICallbacks_Struct
 MenuManagerUICallbacks = MenuManagerUICallbacks_Struct()
 
 
+/*
+    Persist source files and folders for the Menu Manager UI.
+    The launcher provides the INI location beside MenuManager-UI.ms.
+*/
+struct MenuManagerSourceSettings_v
+(
+    ini_file_path = "",
+    macro_sources = #(),
+    quad_sources = #(),
+
+    /* Read one counted list of source paths from the settings file.
+       Preserve ordering and ignore empty entries.
+    */
+    function readSourceList section_name =
+    (
+        local source_paths = #()
+        local count_text = getINISetting this.ini_file_path section_name "Count"
+        local source_count = 0
+
+        if count_text != "" then source_count = count_text as integer
+        if source_count < 0 then source_count = 0
+        if source_count > 1024 then source_count = 1024
+
+        for source_index = 1 to source_count do
+        (
+            local path_text = getINISetting this.ini_file_path section_name ("Path" + (source_index as string))
+            if path_text != "" then appendIfUnique source_paths path_text
+        )
+
+        source_paths -- return
+    ),
+
+    /* Overwrite one counted INI list, clearing entries removed in the UI.
+       The other settings section remains unchanged.
+    */
+    function writeSourceList section_name source_paths =
+    (
+        local old_count_text = getINISetting this.ini_file_path section_name "Count"
+        local old_count = if old_count_text == "" then 0 else (old_count_text as integer)
+
+        for source_index = 1 to old_count do
+            setINISetting this.ini_file_path section_name ("Path" + (source_index as string)) ""
+
+        setINISetting this.ini_file_path section_name "Count" (source_paths.count as string)
+        for source_index = 1 to source_paths.count do
+            setINISetting this.ini_file_path section_name ("Path" + (source_index as string)) source_paths[source_index]
+
+        true -- return
+    ),
+
+    /* Load saved sources without changing the installed menu configuration.
+       An empty file means the user has not configured any sources yet.
+    */
+    function loadSources =
+    (
+        if ini_file_path == "" then
+        (
+            format "Menu Manager: missing settings path.\n"
+            false
+        )
+        else
+        (
+            this.macro_sources = this.readSourceList "Macroscripts"
+            this.quad_sources = this.readSourceList "QuadConfigurations"
+            true
+        ) -- return
+    ),
+
+    /* Save both source lists to the stable unversioned INI file.
+       Store the full paths selected by the user.
+    */
+    function saveSources =
+    (
+        if ini_file_path == "" then
+        (
+            format "Menu Manager: settings cannot be saved without an INI path.\n"
+            false
+        )
+        else
+        (
+            this.writeSourceList "Macroscripts" this.macro_sources
+            this.writeSourceList "QuadConfigurations" this.quad_sources
+            true
+        ) -- return
+    ),
+
+    /* Recreate the manager definitions from configured source paths.
+       This updates the UI data only; installation remains an explicit action.
+    */
+    function applySources =
+    (
+        global MENU_MANAGER_GLOBAL
+        MENU_MANAGER_GLOBAL = MenuManager_v()
+        local valid_quad_sources = #()
+
+        for source_path in this.macro_sources do
+        (
+            if doesFileExist source_path or doesDirectoryExist source_path then
+                MENU_MANAGER_GLOBAL.addMacrosToMenus source_path
+            else
+                format "Menu Manager: missing macroscript source: %\n" source_path
+        )
+
+        for source_path in this.quad_sources do
+        (
+            if doesFileExist source_path or doesDirectoryExist source_path then
+                append valid_quad_sources source_path
+            else
+                format "Menu Manager: missing quad source: %\n" source_path
+        )
+
+        if valid_quad_sources.count > 0 then MENU_MANAGER_GLOBAL.quadDir valid_quad_sources
+
+        true -- return
+    ),
+
+    on create do
+    (
+    )
+)
+
+global MenuManagerSourceSettings = MenuManagerSourceSettings_v()
+
 rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
 (
-    dotNetControl tv_menus "TreeView" pos:[8,8] width:350 height:400
-    dotNetControl tv_quads "TreeView" pos:[366,8] width:350 height:400
+    label lblMacroSources "MACROSCRIPT SOURCES (.mcr files or folders)" pos:[12,12] width:552 height:20
+    dotNetControl lstMacroSources "ListBox" pos:[12,36] width:552 height:64
+    button btnAddMacroFile "BROWSE FILE" pos:[12,108] width:180 height:24
+    button btnAddMacroFolder "BROWSE FOLDER" pos:[204,108] width:180 height:24
+    button btnRemoveMacro "REMOVE SELECTED" pos:[396,108] width:168 height:24
+    label lblMacroTree "MACROSCRIPT MENUS" pos:[12,140] width:552 height:18
+    dotNetControl tv_menus "TreeView" pos:[12,164] width:552 height:110
+    button btnInstallMenus "INSTALL SELECTED" pos:[12,282] width:180 height:28
+    button btnResetMenus "RESET MENUS" pos:[204,282] width:180 height:28
+    button btnMenuEditor "MENU EDITOR" pos:[396,282] width:168 height:28
 
-    button btnInstallMenus "INSTALL SELECTED MENUS" pos:[8,416] width:170 height:32
-    button btnResetMenus "RESET MENUS" pos:[188,416] width:170 height:32
+    label lblQuadSources "QUAD CONFIG SOURCES (.ms files or folders)" pos:[12,322] width:552 height:20
+    dotNetControl lstQuadSources "ListBox" pos:[12,346] width:552 height:64
+    button btnAddQuadFile "BROWSE FILE" pos:[12,418] width:180 height:24
+    button btnAddQuadFolder "BROWSE FOLDER" pos:[204,418] width:180 height:24
+    button btnRemoveQuad "REMOVE SELECTED" pos:[396,418] width:168 height:24
+    label lblQuadTree "QUAD MENUS" pos:[12,450] width:552 height:18
+    dotNetControl tv_quads "TreeView" pos:[12,474] width:552 height:110
+    button btnInstallQuads "INSTALL SELECTED" pos:[12,592] width:180 height:28
+    button btnResetQuads "RESET QUADS" pos:[204,592] width:180 height:28
+    button btnQuadEditor "QUAD EDITOR" pos:[396,592] width:168 height:28
 
-    button btnInstallQuads "INSTALL SELECTED QUADS" pos:[366,416] width:170 height:32
-    button btnResetQuads "RESET QUADS" pos:[546,416] width:170 height:32
-
-    button btnMenuEditor "Menu Editor" pos:[97,460] width:170 height:32
-    button btnRefresh "REFRESH" pos:[277,460] width:170 height:32
-    button btnQuadEditor "Quad Editor" pos:[457,460] width:170 height:32
+    button btnSaveSources "SAVE & APPLY" pos:[12,632] width:180 height:28
+    button btnRefresh "REFRESH" pos:[204,632] width:180 height:28
+    label lblIniInfo "Edit paths, then SAVE & APPLY (MenuManager-UI.ini)." pos:[12,668] width:552 height:20
 
     local macro_data = #()
     local quad_data = #()
+    local draft_macro_sources = #()
+    local draft_quad_sources = #()
     local menu_selection_anchor = undefined
     local quad_selection_anchor = undefined
+
+    /* Show both configured source lists in the main window.
+       Full paths distinguish similarly named files and folders.
+    */
+    function refreshSourceLists =
+    (
+        lstMacroSources.Items.Clear()
+        lstQuadSources.Items.Clear()
+
+        for source_path in draft_macro_sources do
+        (
+            lstMacroSources.Items.Add (source_path as string)
+        )
+        for source_path in draft_quad_sources do
+        (
+            lstQuadSources.Items.Add (source_path as string)
+        )
+    )
+
+    /* Add a browsed source to the editable list for its category.
+       Save & Apply commits these changes to the manager and INI.
+    */
+    function addDraftSource source_path source_type =
+    (
+        if source_path != undefined and source_path != "" then
+        (
+            if source_type == #macro then
+            (
+                appendIfUnique draft_macro_sources source_path
+            )
+            else
+            (
+                appendIfUnique draft_quad_sources source_path
+            )
+            refreshSourceLists()
+        )
+    )
 
     function updateMacroData =
     (
@@ -573,45 +748,63 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
         visible_count -- return
     )
 
+    /* Resize both vertically stacked trees to available 3ds Max height.
+       Keep source browsers and action rows accessible on smaller screens.
+    */
     function updateTreeLayout =
     (
-        local dialog_width = 724
-        local layout_height = 140
-        local minimum_tree_height = 240
+        local dialog_width = 576
+        local fixed_layout_height = 480
+        local minimum_tree_height = 68
         local max_window_margin = 48
         local max_window_rect = windows.getWindowPos #max
-        local max_dialog_height = 540
+        local max_dialog_height = 760
 
         if max_window_rect != undefined then
             max_dialog_height = max_window_rect.h - max_window_margin
 
-        if max_dialog_height < minimum_tree_height + layout_height then
-            max_dialog_height = minimum_tree_height + layout_height
+        local maximum_tree_height = ((max_dialog_height - fixed_layout_height) / 2) as integer
+        if maximum_tree_height < minimum_tree_height then maximum_tree_height = minimum_tree_height
+        if maximum_tree_height > 240 then maximum_tree_height = 240
 
-        local max_tree_height = max_dialog_height - layout_height
         local menu_required_height = (countVisibleTreeNodes tv_menus.Nodes * tv_menus.ItemHeight) + 6
         local quad_required_height = (countVisibleTreeNodes tv_quads.Nodes * tv_quads.ItemHeight) + 6
         local tree_height = menu_required_height
 
         if quad_required_height > tree_height then tree_height = quad_required_height
         if tree_height < minimum_tree_height then tree_height = minimum_tree_height
-        if tree_height > max_tree_height then tree_height = max_tree_height
+        if tree_height > maximum_tree_height then tree_height = maximum_tree_height
 
         tv_menus.height = tree_height
         tv_quads.height = tree_height
-        tv_menus.Scrollable = menu_required_height > tree_height
-        tv_quads.Scrollable = quad_required_height > tree_height
+        tv_menus.Scrollable = (menu_required_height > tree_height)
+        tv_quads.Scrollable = (quad_required_height > tree_height)
 
-        local button_y = 16 + tree_height
-        btnInstallMenus.pos = [8, button_y]
-        btnResetMenus.pos = [188, button_y]
-        btnInstallQuads.pos = [366, button_y]
-        btnResetQuads.pos = [546, button_y]
-        btnMenuEditor.pos = [97, button_y + 44]
-        btnRefresh.pos = [277, button_y + 44]
-        btnQuadEditor.pos = [457, button_y + 44]
+        local macro_buttons_y = 172 + tree_height
+        local quad_sources_y = macro_buttons_y + 40
+        local quad_tree_y = quad_sources_y + 152
+        local quad_buttons_y = quad_tree_y + tree_height + 8
+        local footer_y = quad_buttons_y + 40
 
-        setDialogSize MenuManagerUI_ROLLOUT [dialog_width, tree_height + layout_height]
+        btnInstallMenus.pos = [12, macro_buttons_y]
+        btnResetMenus.pos = [204, macro_buttons_y]
+        btnMenuEditor.pos = [396, macro_buttons_y]
+
+        lblQuadSources.pos = [12, quad_sources_y]
+        lstQuadSources.pos = [12, quad_sources_y + 24]
+        btnAddQuadFile.pos = [12, quad_sources_y + 96]
+        btnAddQuadFolder.pos = [204, quad_sources_y + 96]
+        btnRemoveQuad.pos = [396, quad_sources_y + 96]
+        lblQuadTree.pos = [12, quad_sources_y + 128]
+        tv_quads.pos = [12, quad_tree_y]
+        btnInstallQuads.pos = [12, quad_buttons_y]
+        btnResetQuads.pos = [204, quad_buttons_y]
+        btnQuadEditor.pos = [396, quad_buttons_y]
+        btnSaveSources.pos = [12, footer_y]
+        btnRefresh.pos = [204, footer_y]
+        lblIniInfo.pos = [12, footer_y + 36]
+
+        setDialogSize MenuManagerUI_ROLLOUT [dialog_width, fixed_layout_height + (2 * tree_height)]
 
         if max_window_rect != undefined then
         (
@@ -621,7 +814,7 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
             setDialogPos MenuManagerUI_ROLLOUT [dialog_position.x, centered_y]
         )
     )
-	
+
     on MenuManagerUI_ROLLOUT open do
     (
 		
@@ -646,6 +839,13 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
 
         -- Dynamically append the version to the rollout title
         MenuManagerUI_ROLLOUT.title = "Menu Manager UI v" + (MenuManagerUICallbacks.version as string)
+
+        /* copy #noMap returns the array, unlike mapped copy (returns OK). */
+        draft_macro_sources = copy MenuManagerSourceSettings.macro_sources #noMap
+        draft_quad_sources = copy MenuManagerSourceSettings.quad_sources #noMap
+        lstMacroSources.HorizontalScrollbar = true
+        lstQuadSources.HorizontalScrollbar = true
+        refreshSourceLists()
         
         updateMacroData()
         updateQuadData()
@@ -673,6 +873,71 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
 		MenuManagerUICallbacks.buildMacroTree quad_data tv_quads
 		updateTreeLayout()
 		
+    )
+
+    on btnAddMacroFile pressed do
+    (
+        local source_path = getOpenFileName caption:"Choose macroscript" types:"Macroscripts (*.mcr)|*.mcr|"
+        addDraftSource source_path #macro
+    )
+
+    on btnAddMacroFolder pressed do
+    (
+        addDraftSource (getSavePath caption:"Choose macroscript folder") #macro
+    )
+
+    on btnRemoveMacro pressed do
+    (
+        if lstMacroSources.SelectedIndex >= 0 then
+        (
+            deleteItem draft_macro_sources (lstMacroSources.SelectedIndex + 1)
+            refreshSourceLists()
+        )
+    )
+
+    on btnAddQuadFile pressed do
+    (
+        local source_path = getOpenFileName caption:"Choose quad config" types:"MaxScript (*.ms)|*.ms|"
+        addDraftSource source_path #quad
+    )
+
+    on btnAddQuadFolder pressed do
+    (
+        addDraftSource (getSavePath caption:"Choose quad configuration folder") #quad
+    )
+
+    on btnRemoveQuad pressed do
+    (
+        if lstQuadSources.SelectedIndex >= 0 then
+        (
+            deleteItem draft_quad_sources (lstQuadSources.SelectedIndex + 1)
+            refreshSourceLists()
+        )
+    )
+
+    on btnSaveSources pressed do
+    (
+        try
+        (
+            MenuManagerSourceSettings.macro_sources = copy draft_macro_sources #noMap
+            MenuManagerSourceSettings.quad_sources = copy draft_quad_sources #noMap
+
+            if MenuManagerSourceSettings.saveSources() then
+            (
+                MenuManagerSourceSettings.applySources()
+                refreshSources()
+                lblIniInfo.text = "Sources saved and applied (MenuManager-UI.ini)."
+            )
+            else
+            (
+                messageBox "Source settings could not be saved. See MAXScript Listener." title:"Menu Manager"
+            )
+        )
+        catch
+        (
+            format "Menu Manager source settings failed: %\n" (getCurrentException())
+            messageBox "Failed to save or apply source settings. See MAXScript Listener." title:"Menu Manager"
+        )
     )
 
     on btnInstallMenus pressed do
@@ -748,7 +1013,10 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
         toggleMenuEditor force:true tab_name:#Menus
     )
 
-    on btnRefresh pressed do
+    /* Refresh both trees from the configured menu manager instance.
+       Used by the Refresh button and after Settings are applied.
+    */
+    function refreshSources =
     (
         menu_selection_anchor = undefined
         quad_selection_anchor = undefined
@@ -757,6 +1025,11 @@ rollout MenuManagerUI_ROLLOUT "Menu Manager UI"
         MenuManagerUICallbacks.buildMacroTree macro_data tv_menus
         MenuManagerUICallbacks.buildMacroTree quad_data tv_quads
         updateTreeLayout()
+    )
+
+    on btnRefresh pressed do
+    (
+        refreshSources()
     )
 
     on btnQuadEditor pressed do

@@ -111,7 +111,7 @@ struct MenuManager_v
 	 */
 	function addMacrosToMenus macroscripts_paths =
 	(
-		--format "\n"; print "MenuManager_v.addMacrosToMenus()"
+		format "\n"; print "MenuManager_v.addMacrosToMenus()"
 		--format "macroscripts_paths: %\n" macroscripts_paths
 		if macroscripts_paths == undefined then
 		(
