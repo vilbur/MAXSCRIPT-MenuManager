@@ -11,7 +11,7 @@ if MENU_MANAGER_GLOBAL == undefined then
 	local source_directory = getFilenamePath(getSourceFileName())
 
 	/* EXTERNAL MACROSCRIPT PARSER */
-	filein (source_directory + "/../MAXSCRIPT-MacroScriptFileParser/includes.ms")
+	filein (source_directory + "/../MacroScriptFileParser/includes.ms")
 
 
 	/* LIBRARY */
