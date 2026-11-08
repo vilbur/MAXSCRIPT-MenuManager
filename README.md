@@ -9,6 +9,10 @@ Custom menus must be rebuilt on every 3ds Max launch.
 
 The script allows multiple independent tools to add their own menu data into one shared JSON file. On startup, all saved menu definitions are loaded from JSON and rebuilt automatically.  
 
+## Menu Manager UI
+
+![Menu Manager UI](Doc/UI.jpg)
+
 
 ---  
 

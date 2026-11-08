@@ -1,6 +1,7 @@
 /*
 	MenuRebuilder_v
-	Version: 0.95
+	Version: 0.96
+	Project version: 1.18
 	3ds Max: 2026
 	Purpose:
 		Rebuild menus and quad menus from MenuBuildManager_v saved data.
@@ -9,10 +10,17 @@
 
 if MenuRebuilder_qmnx_clear_guard == undefined then MenuRebuilder_qmnx_clear_guard = false
 
+global MenuManagerProjectVersion
+if MenuManagerProjectVersion == undefined or MenuManagerProjectVersion < 1.18 then
+(
+	MenuManagerProjectVersion = 1.18
+)
+
 
 struct MenuRebuilder_v
 (
-	version = 0.95,
+	version = 0.96,
+	project_version = 1.18,
 	menu_data = Dictionary #name,
 	skip_default_qmnx_clear = false,
 	help_menu_id = "cee8f758-2199-411b-81e7-d3ff4a80d143",
@@ -879,6 +887,109 @@ struct MenuRebuilder_v
 	),
 
 
+	/* Split the first hyphen-delimited segment from a menu title.
+	   Only non-empty prefix and suffix form a candidate shared group.
+	*/
+	function getMenuPrefixParts menu_title =
+	(
+		local prefix_parts = #()
+		local title_text = menu_title as string
+		local separator_index = findString title_text "-"
+
+		if separator_index != undefined then
+		(
+			if separator_index > 1 and separator_index < title_text.count then
+			(
+				local prefix_text = trimRight (substring title_text 1 (separator_index - 1))
+				local suffix_text = trimLeft (substring title_text (separator_index + 1) (title_text.count - separator_index))
+
+				if prefix_text != "" and suffix_text != "" then
+					prefix_parts = #(prefix_text, suffix_text)
+			)
+		)
+
+		prefix_parts -- return
+	),
+
+	/* Group sibling submenus that share a hyphen-delimited prefix.
+	   Clone display data to preserve saved titles, IDs, and original JSON.
+	*/
+	function groupSiblingMenusByPrefix saved_items =
+	(
+		local grouped_items = saved_items
+
+		if this.isArrayValue saved_items then
+		(
+			local group_counts = Dictionary #string
+			local group_indices = Dictionary #string
+			local original_titles = #()
+			grouped_items = #()
+
+			for item_data in saved_items do
+			(
+				if this.isSubMenuData item_data then
+				(
+					local item_title = this.getItemStringValue item_data #title ""
+					local candidate_parts = this.getMenuPrefixParts item_title
+					appendIfUnique original_titles item_title
+
+					if candidate_parts.count == 2 then
+					(
+						local count_prefix = candidate_parts[1]
+						if not (HasDictValue group_counts count_prefix) then
+							group_counts[count_prefix] = 0
+						group_counts[count_prefix] = group_counts[count_prefix] + 1
+					)
+				)
+			)
+
+			for item_data in saved_items do
+			(
+				local grouped_item = false
+				if this.isSubMenuData item_data then
+				(
+					local prefix_parts = this.getMenuPrefixParts (this.getItemStringValue item_data #title "")
+					if prefix_parts.count == 2 then
+					(
+						local prefix_text = prefix_parts[1]
+						local child_title = prefix_parts[2]
+
+						if (HasDictValue group_counts prefix_text) and group_counts[prefix_text] >= 2 and (findItem original_titles prefix_text) == 0 then
+						(
+							if not (HasDictValue group_indices prefix_text) then
+							(
+								local new_group_data = Dictionary #name
+								new_group_data[#id] = this.createGuidString()
+								new_group_data[#title] = prefix_text
+								new_group_data[#items] = #()
+								append grouped_items new_group_data
+								group_indices[prefix_text] = grouped_items.count
+							)
+
+							local group_index = group_indices[prefix_text]
+							local group_data = grouped_items[group_index]
+							local child_data = Dictionary #name
+							for item_key in (GetDictKeys item_data) do
+								child_data[item_key] = item_data[item_key]
+							child_data[#id] = this.getMenuItemBuildId item_data (this.createGuidString())
+							child_data[#title] = child_title
+							child_data[#items] = item_data[#items]
+							local group_children = group_data[#items]
+							append group_children child_data
+							group_data[#items] = group_children
+							grouped_items[group_index] = group_data
+							grouped_item = true
+						)
+					)
+				)
+
+				if not grouped_item then append grouped_items item_data
+			)
+		)
+
+		grouped_items -- return
+	),
+
 	function rebuildMenuItems parent_menu saved_items =
 	(
 		build_ok = false
@@ -1009,7 +1120,11 @@ struct MenuRebuilder_v
 
 				if root_menu != undefined then
 				(
-					this.rebuildMenuItems root_menu (this.getMenuItems())
+					local root_items = this.getMenuItems()
+					if menu_title == "_Custom-Menus" then
+						root_items = this.groupSiblingMenusByPrefix root_items
+
+					this.rebuildMenuItems root_menu root_items
 					build_ok = true
 				)
 			)

@@ -112,6 +112,35 @@ function defineQuadItemsTest =
 	)
 )
 
+/*==============================================================================
+
+	USE EXISTING QUAD
+
+================================================================================*/  
+/** Use existing quad
+ */
+function useExistingQuad =
+(
+	--format "\n"; print ".useExistingQuad()"
+	/* Get source quad menu */
+	snap_quad_menu = MenuBuildManager.quad "Snap"
+	
+	/* Get Bottom Right quadrant */
+	source_quad = snap_quad_menu.getQuad #BottomRight
+	
+	/* Get destination quad menu */
+	target_quad_menu = MenuBuildManager.quad "Modeling"
+	
+	/* Get destination quadrant */
+	target_quad = target_quad_menu.getQuad #TopLeft
+	
+	/* Copy source items into destination */
+	target_quad.addMenu source_quad flat:true
+	
+	/* Save and install */
+	MenuBuildManager.installAndShow()
+	
+)
 
 
 /*==============================================================================
@@ -128,6 +157,8 @@ defineMenusItemsTest()
 /* DEFINE QUADS */ 
 defineQuadItemsTest()
 
+/* USE EXISTING QUAD */ 
+useExistingQuad()
 
 
 /*------------------------------------------------------------------------------
