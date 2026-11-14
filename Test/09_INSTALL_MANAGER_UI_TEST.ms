@@ -1,3 +1,7 @@
+/*
+	File version: 0.01
+	Project version: 1.18
+*/
 clearListener(); print("Cleared in: "+getSourceFileName())
 
 filein( getFilenamePath(getSourceFileName()) + "/../include-MenuManager.ms" )	--"./../include-MenuManager.ms"
@@ -51,8 +55,8 @@ macro_scripts_files =  ""
 
 
 /* TEST ON PRODUCTION FILES */ 
- macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\MAXSCRIPT-viltools3\VilTools"
---macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\MAXSCRIPT-viltools3\VilTools\rollouts-Tools\rollout-SCENE\03-RESET.mcr"
+ macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\viltools3\VilTools"
+--macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\viltools3\VilTools\rollouts-Tools\rollout-SCENE\03-RESET.mcr"
 
 
 /* ADD MACORS TO MENUS */ 

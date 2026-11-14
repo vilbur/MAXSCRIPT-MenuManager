@@ -1,7 +1,7 @@
 /*
 	MenuManagerUI.ms
-	Version: 1.24
-	Project version: 1.25
+	Version: 1.27
+	Project version: 1.31
 	UI for MENU_MANAGER_GLOBAL macro management
 	TreeView-based macroscript inspector + install/reset tools
 */
@@ -138,8 +138,8 @@ function toggleMenuEditor force:false tab_name:#none =
 
 struct MenuManagerUICallbacks_Struct
 (
-    version = 1.24,
-    project_version = 1.25,
+    version = 1.27,
+    project_version = 1.31,
 
     function buildMacroTree paths treeView =
     (
@@ -993,6 +993,7 @@ rollout MenuManagerMacros_ROLLOUT "MAXSCRIPTS" width:528 height:672 autoLayoutOn
         if MenuManagerQuads_ROLLOUT.open == state then
             MenuManagerQuads_ROLLOUT.open = not state
         if state then MenuManagerUI_ROLLOUT.fitDialogToOpenRollout()
+        MenuManagerUI_ROLLOUT.syncPanelRadioButtons()
     )
 
 )
@@ -1066,6 +1067,7 @@ rollout MenuManagerQuads_ROLLOUT "QUAD MENUS" width:528 height:672 autoLayoutOnR
         if MenuManagerMacros_ROLLOUT.open == state then
             MenuManagerMacros_ROLLOUT.open = not state
         if state then MenuManagerUI_ROLLOUT.fitDialogToOpenRollout()
+        MenuManagerUI_ROLLOUT.syncPanelRadioButtons()
     )
 
 )
@@ -1073,7 +1075,9 @@ rollout MenuManagerQuads_ROLLOUT "QUAD MENUS" width:528 height:672 autoLayoutOnR
 rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
 (
     dotNetControl btn_tool_title "System.Windows.Forms.Button" pos:[12,12] width:552 height:20
-    subRollout sr_menu_sections "" pos:[12,48] width:552 height:596
+    dotNetControl rbMenus "System.Windows.Forms.RadioButton" pos:[12,44] width:272 height:28
+    dotNetControl rbQuads "System.Windows.Forms.RadioButton" pos:[292,44] width:272 height:28
+    subRollout sr_menu_sections "" pos:[12,84] width:552 height:560
     button btnSaveSources "SAVE & APPLY" pos:[12,652] width:180 height:24
     button btnRefresh "REFRESH" pos:[204,652] width:180 height:24
     label lblIniInfo "Paths save automatically. SAVE & APPLY updates menus." pos:[12,688] width:552 height:20
@@ -1145,7 +1149,6 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         local menu_tree_height = if fit_tree_height != undefined then fit_tree_height else (ceil ((dialog_height * 2.0) / 3.0)) as integer
         local footer_y = dialog_height - 68
 
-        sr_menu_sections.height = dialog_height - 124
         MenuManagerMacros_ROLLOUT.height = layoutSourcePanel \
             MenuManagerMacros_ROLLOUT.lstMacroSources \
             MenuManagerMacros_ROLLOUT.btnAddMacroFile \
@@ -1168,6 +1171,14 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
             MenuManagerQuads_ROLLOUT.btnResetQuads \
             menu_tree_height
 
+        /* Keep the shared subrollout slot 64 px taller than its tallest child. */
+        local tallest_rollout_height = MenuManagerMacros_ROLLOUT.height
+        if MenuManagerQuads_ROLLOUT.height > tallest_rollout_height then
+        (
+            tallest_rollout_height = MenuManagerQuads_ROLLOUT.height
+        )
+        sr_menu_sections.height = tallest_rollout_height + 64
+
         btnSaveSources.pos = [12, footer_y]
         btnRefresh.pos = [204, footer_y]
         lblIniInfo.pos = [12, footer_y + 36]
@@ -1183,8 +1194,13 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         local dialog_size = getDialogSize MenuManagerUI_ROLLOUT
         if dialog_size == undefined then return false
 
-        local panel_height = if MenuManagerMacros_ROLLOUT.open then MenuManagerMacros_ROLLOUT.height else MenuManagerQuads_ROLLOUT.height
-        local target_height = (ceil (panel_height + 148)) as integer
+        /* Fit the taller child, its 64 px margin, and the footer below the slot. */
+        local tallest_rollout_height = MenuManagerMacros_ROLLOUT.height
+        if MenuManagerQuads_ROLLOUT.height > tallest_rollout_height then
+        (
+            tallest_rollout_height = MenuManagerQuads_ROLLOUT.height
+        )
+        local target_height = (ceil (tallest_rollout_height + 224)) as integer
         local screen_height_limit = target_height
 
         try
@@ -1222,6 +1238,37 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
             fit_tree_height = undefined
         )
 
+        true -- return
+    )
+
+    /* Match the radio choice to the rollout currently expanded.
+       Keep manual clicks on the rollout headers synchronized.
+    */
+    function syncPanelRadioButtons =
+    (
+        rbMenus.Checked = MenuManagerMacros_ROLLOUT.open
+        rbQuads.Checked = MenuManagerQuads_ROLLOUT.open
+        true -- return
+    )
+
+    /* Switch the expanded menu type when a wide radio option is clicked.
+       Preserve the existing rollout-based controls and auto-fit behavior.
+    */
+    function selectMenuPanel panel_type =
+    (
+        if panel_type == #menus then
+        (
+            MenuManagerMacros_ROLLOUT.open = true
+            MenuManagerQuads_ROLLOUT.open = false
+        )
+        else
+        (
+            MenuManagerQuads_ROLLOUT.open = true
+            MenuManagerMacros_ROLLOUT.open = false
+        )
+
+        syncPanelRadioButtons()
+        fitDialogToOpenRollout()
         true -- return
     )
 
@@ -1604,6 +1651,30 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         ToolTitleButton.setupToolTitleButton btn_tool_title "MENU MANAGER UI"
         ToolTitleButton.resizeToolTitleButton btn_tool_title 552
 
+        /* Display the two radio options as wide dark buttons beneath the title.
+           Selected buttons identify the expanded menu type.
+        */
+        for mode_radio in #(rbMenus, rbQuads) do
+        (
+            mode_radio.Appearance = (dotNetClass "System.Windows.Forms.Appearance").Button
+            mode_radio.AutoCheck = false
+            mode_radio.UseVisualStyleBackColor = false
+            mode_radio.FlatStyle = (dotNetClass "System.Windows.Forms.FlatStyle").Flat
+            mode_radio.TextAlign = (dotNetClass "System.Drawing.ContentAlignment").MiddleCenter
+            mode_radio.BackColor = drawing_color.FromArgb 68 68 68
+            mode_radio.ForeColor = light_text
+            mode_radio.FlatAppearance.BorderColor = drawing_color.FromArgb 120 120 120
+            mode_radio.FlatAppearance.BorderSize = 1
+            mode_radio.FlatAppearance.MouseOverBackColor = drawing_color.FromArgb 78 78 78
+            mode_radio.FlatAppearance.MouseDownBackColor = drawing_color.FromArgb 55 55 55
+            mode_radio.Font = dotNetObject "System.Drawing.Font" "Segoe UI" 9.0 (dotNetClass "System.Drawing.FontStyle").Bold
+        )
+        rbMenus.Text = "MENUS"
+        rbQuads.Text = "QUADS"
+        rbMenus.FlatAppearance.CheckedBackColor = drawing_color.FromArgb 45 105 69
+        rbQuads.FlatAppearance.CheckedBackColor = drawing_color.FromArgb 48 88 140
+        syncPanelRadioButtons()
+
         /* Apply the standard dark .NET button style to both editor launchers.
            Only their location changes; the forked menu-editor function is reused.
         */
@@ -1637,6 +1708,16 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
 		updateTreeLayout()
         auto_fit_ready = true
         fitDialogToOpenRollout()
+    )
+
+    on rbMenus Click sender event_args do
+    (
+        selectMenuPanel #menus
+    )
+
+    on rbQuads Click sender event_args do
+    (
+        selectMenuPanel #quads
     )
 
     on MenuManagerUI_ROLLOUT moved dialog_pos do

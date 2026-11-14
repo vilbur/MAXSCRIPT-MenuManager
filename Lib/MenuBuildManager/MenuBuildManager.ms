@@ -1,4 +1,5 @@
 global MenuBuildManager
+global MenuManagerProjectVersion
 global MenuRebuilder_v
 global MenuDefinition_v
 global QuadDefaultQmnxClear_v
@@ -20,7 +21,7 @@ if MenuBuildManagerJsonRollout == undefined then filein( getFilenamePath(getSour
 
 
 /*
-	MenuBuildManager_v 0.95
+	MenuBuildManager_v 0.98
 	Ordered item schema + split JSON development storage + native .msdata production cache.
 
 	Compile modes:
@@ -41,7 +42,8 @@ if MenuBuildManagerJsonRollout == undefined then filein( getFilenamePath(getSour
 
 struct MenuBuildManager_v
 (
-	version = 0.96,
+	version = 0.98,
+	project_version = 1.30,
 	menus_data = #(),
 	wait_for_build = #(),
 	saved_menus_data = #(),
@@ -1925,6 +1927,152 @@ struct MenuBuildManager_v
 		quad_menu_definition -- return
 	),
 
+	/*
+	    Find an installed native CUI quad menu by its title.
+	    Reads registered quad contexts without creating new native menus.
+	*/
+	function findNativeQuadMenuByTitle quad_title =
+	(
+		local found_quad = undefined
+		local requested_title = toLower (this.normalizeDefaultQuadTitleForCompare quad_title)
+		local requested_short_title = toLower (this.getDefaultQuadShortTitle quad_title)
+		local native_quad_manager = this.getCurrentCuiQuadMenuManager()
+
+		if native_quad_manager != undefined and requested_title != "" then
+		(
+			local native_contexts = #()
+			try (native_contexts = native_quad_manager.contexts) catch (native_contexts = #())
+
+			for native_context in native_contexts while found_quad == undefined do
+			(
+				local native_quad_menus = #()
+				try (native_quad_menus = native_context.quadMenus) catch (native_quad_menus = #())
+
+				for native_quad in native_quad_menus while found_quad == undefined do
+				(
+					local native_title = ""
+					try (native_title = native_quad.title as string) catch (native_title = "")
+
+					if native_title != "" then
+					(
+						local normalized_native_title = toLower (this.normalizeDefaultQuadTitleForCompare native_title)
+						local native_short_title = toLower (this.getDefaultQuadShortTitle native_title)
+
+						if normalized_native_title == requested_title or native_short_title == requested_short_title then
+						(
+							found_quad = native_quad
+						)
+					)
+				)
+			)
+
+			/* Default viewport quads are also addressable by their RMB modifier. */
+			if found_quad == undefined and (this.isDefaultQuadTitle quad_title) then
+			(
+				local requested_modifier = this.getDefaultQuadModifier quad_title
+				local viewport_context = undefined
+
+				if requested_modifier != undefined then
+				(
+					try (viewport_context = native_quad_manager.GetContextById "ac7c70f8-3f86-4ff5-a510-e4fd6a9c368e") catch (viewport_context = undefined)
+
+					if viewport_context != undefined then
+					(
+						try (found_quad = viewport_context.GetRightClickMenuByModifiers requested_modifier) catch (found_quad = undefined)
+
+						if found_quad != undefined then
+						(
+							format "MenuBuildManager.findNativeQuadMenuByTitle | Resolved % through viewport modifier %.\n" quad_title requested_modifier
+						)
+					)
+				)
+			)
+		)
+
+		found_quad -- return
+	),
+
+	/*
+	    Copy one installed native quad quadrant into a different quad menu.
+	    Preserves destination native items; optionally builds and installs immediately.
+	*/
+	function useExistingQuad source_quad_title source_quad_position target_quad_title target_quad_position install_now:false =
+	(
+		local copied_ok = false
+		local native_source_quad = this.findNativeQuadMenuByTitle source_quad_title
+		local native_target_quad = this.findNativeQuadMenuByTitle target_quad_title
+		local position_reader = MenuDefinition_v()
+		local source_position = position_reader.normalizeQuadPosition source_quad_position
+		local target_position = position_reader.normalizeQuadPosition target_quad_position
+
+		if native_source_quad == undefined or native_target_quad == undefined then
+		(
+			format "MenuBuildManager.useExistingQuad | ERROR: Native source (%) or target (%) quad not found.\n" source_quad_title target_quad_title
+		)
+		else
+		(
+			local native_source_menu = native_source_quad.GetMenuByPos source_position
+			local source_items = #()
+
+			if native_source_menu != undefined then
+			(
+				source_items = position_reader.getNativeCuiMenuItems native_source_menu
+			)
+
+			if source_items.count == 0 then
+			(
+				format "MenuBuildManager.useExistingQuad | ERROR: % % has no readable items.\n" source_quad_title source_position
+				for quad_position in #(#BottomRight, #TopRight, #TopLeft, #BottomLeft) do
+				(
+					local native_menu = native_source_quad.GetMenuByPos quad_position
+					local item_count = if native_menu == undefined then 0 else native_menu.menuItems.count
+					format "SOURCE % | Native items: %\n" quad_position item_count
+				)
+			)
+			else
+			(
+				local target_quad_menu = this.quad target_quad_title
+				local native_context = native_target_quad.context
+
+				target_quad_menu.quad_context_id = native_context.id as string
+				target_quad_menu.quad_modifier = native_context.GetRightClickModifiers native_target_quad
+
+				/* Import any native destination positions not already in the definition. */
+				for quad_position in #(#BottomRight, #TopRight, #TopLeft, #BottomLeft) do
+				(
+					local native_target_menu = native_target_quad.GetMenuByPos quad_position
+
+					if native_target_menu != undefined then
+					(
+						local target_quad = target_quad_menu.getQuad quad_position
+						local existing_items = target_quad.getActiveData()
+
+						if existing_items.count == 0 then
+						(
+							local native_items = target_quad.getNativeCuiMenuItems native_target_menu
+							target_quad.setActiveData native_items
+							target_quad.setTitle (native_target_menu.title as string)
+						)
+					)
+				)
+
+				local source_quad = MenuDefinition_v type:#menu title:(source_quad_title + " " + (source_position as string)) data:source_items _data:source_items
+				local target_quad = target_quad_menu.getQuad target_position
+				target_quad.addMenu source_quad flat:true
+				this.waitForBuild target_quad_menu
+
+				format "MenuBuildManager.useExistingQuad | Copied % items: % % -> % %.\n" source_items.count source_quad_title source_position target_quad_title target_position
+				if install_now then
+				(
+					this.installAndShow load_default_cui_configuration:false
+				)
+				copied_ok = true
+			)
+		)
+
+		copied_ok -- return
+	),
+
 	function pasteMenuAsSingleQuad menu_title quad_title:"Default Viewport Quad" quad_position:1 quad_modifier:#nonePressed clear_default_menu:false =
 	(
 		global MenuBuildManager
@@ -3045,6 +3193,11 @@ struct MenuBuildManager_v
 
 	on create do
 	(
+		if MenuManagerProjectVersion == undefined or this.project_version > MenuManagerProjectVersion then
+		(
+			MenuManagerProjectVersion = this.project_version
+		)
+
 		startup_directory = this.getDefaultStartupDirectory()
 		if this.data_file_path == "" then this.data_file_path = startup_directory + "\\" + this.data_file_name
 		if this.startup_file_path == "" then this.startup_file_path = startup_directory + "\\" + this.startup_file_name

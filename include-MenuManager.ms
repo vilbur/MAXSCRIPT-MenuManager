@@ -4,7 +4,8 @@
 	Release candidate main include file.
 */
 
-if MENU_MANAGER_GLOBAL == undefined then
+format "DEVELOP RESET OF global MENU_MANAGER_GLOBAL\n"
+--if MENU_MANAGER_GLOBAL == undefined then
 	global MENU_MANAGER_GLOBAL
 
 (

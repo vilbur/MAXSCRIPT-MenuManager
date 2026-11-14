@@ -1,3 +1,19 @@
+/*
+    02_QUAD_TEST.ms
+    File version: 0.03
+    Project version: 1.29
+*/
+
+global MenuManagerProjectVersion
+if MenuManagerProjectVersion == undefined then
+(
+    MenuManagerProjectVersion = 1.29
+)
+else if MenuManagerProjectVersion < 1.29 then
+(
+    MenuManagerProjectVersion = 1.29
+)
+
 clearListener(); print("Cleared in: "+getSourceFileName())
 
 filein( getFilenamePath(getSourceFileName()) + "/../include-MenuManager.ms" )	--"./../include-MenuManager.ms"
@@ -116,30 +132,23 @@ function defineQuadItemsTest =
 
 	USE EXISTING QUAD
 
-================================================================================*/  
-/** Use existing quad
- */
+================================================================================*/
+/*
+    Copy installed Snap Bottom Right items into the test quad's Top Left.
+    getExistingQuad returns a populated native source without modifying Snap.
+*/
 function useExistingQuad =
 (
-	--format "\n"; print ".useExistingQuad()"
-	/* Get source quad menu */
-	snap_quad_menu = MenuBuildManager.quad "Snap"
-	
-	/* Get Bottom Right quadrant */
-	source_quad = snap_quad_menu.getQuad #BottomRight
-	
-	/* Get destination quad menu */
-	target_quad_menu = MenuBuildManager.quad "Modeling"
-	
-	/* Get destination quadrant */
-	target_quad = target_quad_menu.getQuad #TopLeft
-	
-	/* Copy source items into destination */
+	format "MenuBuildManager: %\n" MenuBuildManager
+	local snap_quad_menu = MenuBuildManager.quad "Snap"
+	local source_quad = snap_quad_menu.getExistingQuad #BottomRight
+	format "SOURCE_QUAD: %\n" source_quad
+
+	local quad_menu = MENU_MANAGER_GLOBAL.quad "_TEST_QUAD"
+	local target_quad = quad_menu.getQuad #TopLeft
 	target_quad.addMenu source_quad flat:true
-	
-	/* Save and install */
-	MenuBuildManager.installAndShow()
-	
+
+	source_quad -- return
 )
 
 
@@ -157,7 +166,7 @@ defineMenusItemsTest()
 /* DEFINE QUADS */ 
 defineQuadItemsTest()
 
-/* USE EXISTING QUAD */ 
+/* USE EXISTING NATIVE QUAD */
 useExistingQuad()
 
 

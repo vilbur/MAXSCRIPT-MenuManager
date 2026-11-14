@@ -1,7 +1,7 @@
 /*
     MenuManager-UI.ms
-    Launcher version: 1.10
-    Project version: 1.17
+    Launcher version: 1.11
+    Project version: 1.18
     Configurable macroscript and quad-menu sources.
     Source lists are stored beside this launcher in MenuManager-UI.ini.
 */
@@ -15,8 +15,8 @@ global MENU_MANAGER_GLOBAL
 global MenuManagerUICallbacks
 global MenuManagerUILauncherPath
 global MenuManagerProjectVersion
-global menu_manager_launcher_file_version = 1.10
-global menu_manager_launcher_project_version = 1.17
+global menu_manager_launcher_file_version = 1.11
+global menu_manager_launcher_project_version = 1.18
 
 if MenuManagerProjectVersion == undefined or menu_manager_launcher_project_version > MenuManagerProjectVersion then
 (

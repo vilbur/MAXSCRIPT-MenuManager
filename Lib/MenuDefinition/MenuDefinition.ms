@@ -1,13 +1,24 @@
 /*
 	MenuDefinition_v
-	Version: 0.98
+	Version: 1.01
 	Purpose: Ordered menu definition with OOP-friendly submenu creation, ordered quads, title aliases, real separator items, and deferred menu reference resolving.
 */
 
 
+global MenuManagerProjectVersion
+if MenuManagerProjectVersion == undefined then
+(
+    MenuManagerProjectVersion = 1.30
+)
+else if MenuManagerProjectVersion < 1.30 then
+(
+    MenuManagerProjectVersion = 1.30
+)
+
 struct MenuDefinition_v
 (
-	version = 0.98,
+	version = 1.01,
+	project_version = 1.30,
 	type = #menu,
 	title = "",
 	data = undefined,
@@ -938,6 +949,59 @@ struct MenuDefinition_v
 
 
 	/*
+	Find the first direct item with the given title.
+	Returns undefined when the title is absent.
+	*/
+	function getItem item_title =
+	(
+		local found_item = undefined
+		local items_array = this.getActiveData()
+		if item_title != undefined and this.isArrayValue items_array then
+		(
+			for item_data in items_array while found_item == undefined do
+			(
+				if this.hasDictValueSafe item_data #title then
+				(
+					if item_data[#title] == item_title then found_item = item_data
+				)
+			)
+		)
+		found_item -- return
+	),
+
+
+	/*
+	Copy existing item data into this menu with new item IDs.
+	Preserves native action bindings and submenu contents.
+	*/
+	function addItemData item_data index:undefined =
+	(
+		local copied_item = undefined
+		if this.isDictionaryValue item_data then
+		(
+			copied_item = this.cloneValue item_data
+			local pending_items = #(copied_item)
+			while pending_items.count > 0 do
+			(
+				local copied_entry = pending_items[pending_items.count]
+				deleteItem pending_items pending_items.count
+				copied_entry[#id] = this.createGuidString()
+				if this.hasDictValueSafe copied_entry #items then
+				(
+					if this.isArrayValue copied_entry[#items] then
+					(
+						for child_item in copied_entry[#items] where this.isDictionaryValue child_item do
+							append pending_items child_item
+					)
+				)
+			)
+			this.appendSavedItem copied_item index:index
+		)
+		copied_item -- return
+	),
+
+
+	/*
 	Add macro or grouped native action once per group, category, name, and title.
 	Returns existing item data when already present, preserving its ID and position.
 	*/
@@ -1175,20 +1239,28 @@ struct MenuDefinition_v
 	function appendExistingMenuItems menu_reference index:undefined separators:undefined =
 	(
 		target_items = this.ensureItemsArray()
-		menu_title = this.getMenuReferenceTitle menu_reference
-		source_items = this.loadExistingMenuItems menu_reference
 
-		if source_items.count > 0 then
+		if menu_reference == undefined then
 		(
-			local copied_items = #()
-			for source_item in source_items do
-				append copied_items (this.cloneValue source_item)
-			this.insertSeparatorsInItemArray copied_items separators:separators
-			this.appendItemArrayToTarget copied_items target_items index:index
+			format "MenuDefinition.addMenu | Source menu is undefined; no items added.\n"
 		)
 		else
 		(
-			this.appendSavedItem (this.makeFlatMenuReferenceData menu_title separators:separators) index:index
+			menu_title = this.getMenuReferenceTitle menu_reference
+			source_items = this.loadExistingMenuItems menu_reference
+
+			if source_items.count > 0 then
+			(
+				local copied_items = #()
+				for source_item in source_items do
+					append copied_items (this.cloneValue source_item)
+				this.insertSeparatorsInItemArray copied_items separators:separators
+				this.appendItemArrayToTarget copied_items target_items index:index
+			)
+			else
+			(
+				this.appendSavedItem (this.makeFlatMenuReferenceData menu_title separators:separators) index:index
+			)
 		)
 
 		target_items -- return
@@ -1323,6 +1395,93 @@ struct MenuDefinition_v
 		this.addQuad quad_title position:normalized_position -- return
 	),
 
+
+	/*
+	Read an installed native quadrant without creating or modifying it.
+	Returns a standalone populated MenuDefinition_v, or undefined when unavailable.
+	*/
+	function getExistingQuad quad_position_value =
+	(
+		local existing_quad = undefined
+		local normalized_position = this.normalizeQuadPosition quad_position_value
+		local menu_manager = this.getManager()
+		local native_quad = undefined
+
+		if this.type != #quad then
+		(
+			format "MenuDefinition.getExistingQuad | ERROR: % is not a quad menu definition.\n" this.title
+		)
+		else if menu_manager == undefined then
+		(
+			format "MenuDefinition.getExistingQuad | ERROR: No MenuBuildManager for %.\n" this.title
+		)
+		else
+		(
+			try
+			(
+				native_quad = menu_manager.findNativeQuadMenuByTitle this.title
+			)
+			catch
+			(
+				format "MenuDefinition.getExistingQuad | Native quad lookup failed: %\n" (getCurrentException())
+			)
+		)
+
+		if native_quad == undefined then
+		(
+			format "MenuDefinition.getExistingQuad | Native quad not found: %\n" this.title
+		)
+		else
+		(
+			local native_position_menu = undefined
+			try (native_position_menu = native_quad.GetMenuByPos normalized_position) catch (native_position_menu = undefined)
+
+			if native_position_menu != undefined then
+			(
+				local native_items = this.getNativeCuiMenuItems native_position_menu
+
+				if native_items.count > 0 then
+				(
+					local native_title = this.getQuadTitleFromPosition normalized_position
+					try (native_title = native_position_menu.title as string) catch (ok)
+					if native_title == "" then native_title = this.getQuadTitleFromPosition normalized_position
+
+					existing_quad = MenuDefinition_v \
+						type:#quad \
+						title:native_title \
+						data:native_items \
+						_data:native_items \
+						quad_modifier:this.quad_modifier \
+						quad_position:normalized_position \
+						quad_context_id:this.quad_context_id \
+						manager:menu_manager \
+						qmnx_clear_directory:this.qmnx_clear_directory \
+						clear_default_menu:this.clear_default_menu
+				)
+			)
+
+			if existing_quad == undefined then
+			(
+				local resolved_title = ""
+				try (resolved_title = native_quad.title as string) catch (resolved_title = "")
+				format "MenuDefinition.getExistingQuad | Cannot load % from native quad [%].\n" normalized_position resolved_title
+
+				for quad_position in #(#BottomRight, #TopRight, #TopLeft, #BottomLeft) do
+				(
+					local native_menu = undefined
+					local raw_item_count = 0
+					try (native_menu = native_quad.GetMenuByPos quad_position) catch (native_menu = undefined)
+					if native_menu != undefined then
+					(
+						try (raw_item_count = native_menu.menuItems.count) catch (raw_item_count = 0)
+					)
+					format "  %: % native items\n" quad_position raw_item_count
+				)
+			)
+		)
+
+		existing_quad -- return
+	),
 
 	/*
 	Create or get quad position by title.

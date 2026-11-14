@@ -1,13 +1,14 @@
 /*
 	QuadDefaultQmnxClear_v
-	Version: 0.90
+	Version: 0.91
+	Project version: 1.18
 	Release candidate default quad QMNX clear helper.
 */
 
 struct QuadDefaultQmnxClear_v
 (
 	
-	version = 0.90,qmnx_clear_directory = "",
+	version = 0.91,qmnx_clear_directory = "",
 	qmnx_user_data_directory = "",
 	xsd_file_path = "",
 	forced_root_name = "MaxQuadMenuTransformations",
@@ -68,8 +69,11 @@ struct QuadDefaultQmnxClear_v
 		--	append candidate_paths (source_directory + "MenuRebuilder\\qmnx")
 		--)
 
-		append candidate_paths (getDir #userScripts + "\\MAXSCRIPT-MenuBuilder\\MenuRebuilder\\qmnx")
-		append candidate_paths (getDir #userScripts + "\\MAXSCRIPT-MenuBuilder\\Data\\qmnx")
+		if source_directory != "" then
+		(
+			append candidate_paths (source_directory + "..\\MenuRebuilder\\qmnx")
+		)
+		append candidate_paths (getDir #userScripts + "\\MenuManager\\Lib\\MenuRebuilder\\qmnx")
 
 		clear_directory = candidate_paths[candidate_paths.count]
 

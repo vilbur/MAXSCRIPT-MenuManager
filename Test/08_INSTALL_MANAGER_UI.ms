@@ -1,3 +1,7 @@
+/*
+	File version: 0.01
+	Project version: 1.18
+*/
 clearListener(); print("Cleared in: "+getSourceFileName())
 
 filein( getFilenamePath(getSourceFileName()) + "/../include-MenuManager.ms" )	--"./../include-MenuManager.ms"
@@ -48,8 +52,8 @@ global MENU_MANAGER_GLOBAL = MenuManager_v()
 /* GET MACTOSCRIPTS IN DIR */ 
 macro_scripts_files =  current_dir + "/Macros-Parser-Test-Files" 	--"./Macros-Parser-Test-Files"
 --macro_scripts_files =( getFilenamePath(getSourceFileName()) + "/Macros-Parser-Test-Files/EDIT.mcr" )	--"./Macros-Parser-Test-Files/EDIT.mcr"
---macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\MAXSCRIPT-viltools3\VilTools"
---macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\MAXSCRIPT-viltools3\VilTools\rollouts-Tools\rollout-EDIT-POLY\rollouts-EDIT-POLY-TOOLS\rollout-——————EDGES——————\-TOOLS-CONNECT.mcr"
+--macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\viltools3\VilTools"
+--macro_scripts_files =  @"C:\Users\vilbur\AppData\Local\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\viltools3\VilTools\rollouts-Tools\rollout-EDIT-POLY\rollouts-EDIT-POLY-TOOLS\rollout-——————EDGES——————\-TOOLS-CONNECT.mcr"
 
 --MENU_MANAGER_GLOBAL.Blacklist.menus = #( "*Black-List-Test.*" )
 
