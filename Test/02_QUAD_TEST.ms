@@ -1,19 +1,3 @@
-/*
-    02_QUAD_TEST.ms
-    File version: 0.03
-    Project version: 1.29
-*/
-
-global MenuManagerProjectVersion
-if MenuManagerProjectVersion == undefined then
-(
-    MenuManagerProjectVersion = 1.29
-)
-else if MenuManagerProjectVersion < 1.29 then
-(
-    MenuManagerProjectVersion = 1.29
-)
-
 clearListener(); print("Cleared in: "+getSourceFileName())
 
 filein( getFilenamePath(getSourceFileName()) + "/../include-MenuManager.ms" )	--"./../include-MenuManager.ms"
@@ -105,7 +89,7 @@ function defineQuadItemsTest =
 	
 		
 		
-		/*------ BOTTOM LEFT QUAD ------*/
+		/*------ BOTTOM RIGHT QUAD ------*/
 		quad_1 = quad_new.getQuad 1
 	
 		quad_1.addItem "_TEST_CATEGORY" "_test_macro" title:"ITEM 1 QUAD"
@@ -134,21 +118,50 @@ function defineQuadItemsTest =
 
 ================================================================================*/
 /*
-    Copy installed Snap Bottom Right items into the test quad's Top Left.
-    getExistingQuad returns a populated native source without modifying Snap.
+Copy the complete Snap quadrant into the supplied quadrant.
 */
-function useExistingQuad =
+function configQuad2 QuadMenu =
 (
-	format "MenuBuildManager: %\n" MenuBuildManager
-	local snap_quad_menu = MenuBuildManager.quad "Snap"
+	QuadMenu.setTitle "REPLACE QUAD"
+
+	local snap_quad_menu = MenuDefinition_v type:#quad title:"Snap" data:#() manager:(MENU_MANAGER_GLOBAL.MenuBuildManager)
 	local source_quad = snap_quad_menu.getExistingQuad #BottomRight
-	format "SOURCE_QUAD: %\n" source_quad
+	if source_quad == undefined then throw "02_QUAD_TEST: Snap Bottom Right is unavailable."
 
-	local quad_menu = MENU_MANAGER_GLOBAL.quad "_TEST_QUAD"
-	local target_quad = quad_menu.getQuad #TopLeft
+	QuadMenu.addMenu source_quad flat:true
+)
+
+/*
+Select Top Left from the root quad and copy the complete Snap quadrant into it.
+*/
+function configQuad3 QuadMenu =
+(
+	local target_quad = QuadMenu.getQuad #TopLeft
+	target_quad.setTitle "REPLACE QUAD TARGET"
+
+	local snap_quad_menu = MenuDefinition_v type:#quad title:"Snap" data:#() manager:(MENU_MANAGER_GLOBAL.MenuBuildManager)
+	local source_quad = snap_quad_menu.getExistingQuad #BottomRight
+	if source_quad == undefined then throw "02_QUAD_TEST: Snap Bottom Right is unavailable."
+
 	target_quad.addMenu source_quad flat:true
+)
 
-	source_quad -- return
+/*
+Copy only Vertex into the supplied quadrant.
+*/
+function configQuad4 QuadMenu =
+(
+	QuadMenu.setTitle "MOVE QUAD ITEMS"
+
+	local snap_quad_menu = MenuDefinition_v type:#quad title:"Snap" data:#() manager:(MENU_MANAGER_GLOBAL.MenuBuildManager)
+	local source_quad = snap_quad_menu.getExistingQuad #BottomRight
+	if source_quad == undefined then throw "02_QUAD_TEST: Snap Bottom Right is unavailable."
+
+	local vertex_item = source_quad.getItem "Vertex"
+	if vertex_item == undefined then throw "02_QUAD_TEST: Vertex is missing from Snap Bottom Right."
+
+	QuadMenu.clearItems()
+	QuadMenu.addItemData vertex_item
 )
 
 
@@ -167,7 +180,10 @@ defineMenusItemsTest()
 defineQuadItemsTest()
 
 /* USE EXISTING NATIVE QUAD */
-useExistingQuad()
+test_quad = MENU_MANAGER_GLOBAL.quad "_TEST_QUAD"
+configQuad2 (test_quad.getQuad #TopRight)
+configQuad3 test_quad
+configQuad4 (test_quad.getQuad #BottomLeft)
 
 
 /*------------------------------------------------------------------------------

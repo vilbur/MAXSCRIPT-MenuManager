@@ -1,7 +1,7 @@
 /*
 	MenuManagerUI.ms
-	Version: 1.27
-	Project version: 1.31
+	Version: 1.31
+	Project version: 1.33
 	UI for MENU_MANAGER_GLOBAL macro management
 	TreeView-based macroscript inspector + install/reset tools
 */
@@ -138,8 +138,8 @@ function toggleMenuEditor force:false tab_name:#none =
 
 struct MenuManagerUICallbacks_Struct
 (
-    version = 1.27,
-    project_version = 1.31,
+    version = 1.31,
+    project_version = 1.33,
 
     function buildMacroTree paths treeView =
     (
@@ -918,8 +918,8 @@ rollout MenuManagerMacros_ROLLOUT "MAXSCRIPTS" width:528 height:672 autoLayoutOn
     button btnRemoveMacro "REMOVE SELECTED" pos:[360,130] width:160 height:24
     label lblMacroTree "MACROSCRIPT MENUS" pos:[8,162] width:512 height:18
     dotNetControl tv_menus "System.Windows.Forms.TreeView" pos:[8,184] width:512 height:480
-    button btnInstallMenus "INSTALL SELECTED" pos:[8,676] width:252 height:24
-    button btnResetMenus "RESET MENUS" pos:[268,676] width:252 height:24
+    dotNetControl btnInstallMenus "System.Windows.Forms.Button" pos:[8,676] width:252 height:32
+    dotNetControl btnResetMenus "System.Windows.Forms.Button" pos:[268,676] width:252 height:32
 
     local menu_selection_anchor = undefined
 
@@ -962,7 +962,7 @@ rollout MenuManagerMacros_ROLLOUT "MAXSCRIPTS" width:528 height:672 autoLayoutOn
         )
     )
 
-    on btnInstallMenus pressed do
+    on btnInstallMenus Click sender event_args do
     (
         local selections = MenuManagerUICallbacks.getSelectedMacros tv_menus
         if selections.count > 0 then MenuManagerSourceSettings.applySources()
@@ -982,7 +982,7 @@ rollout MenuManagerMacros_ROLLOUT "MAXSCRIPTS" width:528 height:672 autoLayoutOn
             MenuManagerUICallbacks.setChildNodesChecked event_args.Node event_args.Node.Checked
     )
 
-    on btnResetMenus pressed do
+    on btnResetMenus Click sender event_args do
     (
         MenuManagerUICallbacks.resetMenus()
         MenuManagerUI_ROLLOUT.refreshInstalledStates()
@@ -1011,8 +1011,8 @@ rollout MenuManagerQuads_ROLLOUT "QUAD MENUS" width:528 height:672 autoLayoutOnR
     button btnRemoveQuad "REMOVE SELECTED" pos:[360,130] width:160 height:24
     label lblQuadTree "QUAD MENUS" pos:[8,162] width:512 height:18
     dotNetControl tv_quads "System.Windows.Forms.TreeView" pos:[8,184] width:512 height:480
-    button btnInstallQuads "INSTALL SELECTED" pos:[8,676] width:252 height:24
-    button btnResetQuads "RESET QUADS" pos:[268,676] width:252 height:24
+    dotNetControl btnInstallQuads "System.Windows.Forms.Button" pos:[8,676] width:252 height:32
+    dotNetControl btnResetQuads "System.Windows.Forms.Button" pos:[268,676] width:252 height:32
 
     local quad_selection_anchor = undefined
 
@@ -1037,7 +1037,7 @@ rollout MenuManagerQuads_ROLLOUT "QUAD MENUS" width:528 height:672 autoLayoutOnR
         MenuManagerUI_ROLLOUT.removeDraftSource #quad
     )
 
-    on btnInstallQuads pressed do
+    on btnInstallQuads Click sender event_args do
     (
         local selections = MenuManagerUICallbacks.getSelectedMacros tv_quads
         MenuManagerUICallbacks.installQuadMenusFromSelected selections
@@ -1056,7 +1056,7 @@ rollout MenuManagerQuads_ROLLOUT "QUAD MENUS" width:528 height:672 autoLayoutOnR
             MenuManagerUICallbacks.setChildNodesChecked event_args.Node event_args.Node.Checked
     )
 
-    on btnResetQuads pressed do
+    on btnResetQuads Click sender event_args do
     (
         MenuManagerUICallbacks.resetQuads()
         MenuManagerUI_ROLLOUT.refreshInstalledStates()
@@ -1077,10 +1077,7 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
     dotNetControl btn_tool_title "System.Windows.Forms.Button" pos:[12,12] width:552 height:20
     dotNetControl rbMenus "System.Windows.Forms.RadioButton" pos:[12,44] width:272 height:28
     dotNetControl rbQuads "System.Windows.Forms.RadioButton" pos:[292,44] width:272 height:28
-    subRollout sr_menu_sections "" pos:[12,84] width:552 height:560
-    button btnSaveSources "SAVE & APPLY" pos:[12,652] width:180 height:24
-    button btnRefresh "REFRESH" pos:[204,652] width:180 height:24
-    label lblIniInfo "Paths save automatically. SAVE & APPLY updates menus." pos:[12,688] width:552 height:20
+    subRollout sr_menu_sections "" pos:[12,84] width:552 height:628
 
     local macro_data = #()
     local quad_data = #()
@@ -1134,7 +1131,7 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         install_button.pos = [8, actions_y]
         reset_button.pos = [268, actions_y]
 
-        (actions_y + 24 + 12) -- return
+        (actions_y + install_button.height + 12) -- return
     )
 
     /* Give both menu trees at least two-thirds of the main rollout height.
@@ -1147,7 +1144,6 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         if dialog_height < 320 then dialog_height = 320
 
         local menu_tree_height = if fit_tree_height != undefined then fit_tree_height else (ceil ((dialog_height * 2.0) / 3.0)) as integer
-        local footer_y = dialog_height - 68
 
         MenuManagerMacros_ROLLOUT.height = layoutSourcePanel \
             MenuManagerMacros_ROLLOUT.lstMacroSources \
@@ -1171,17 +1167,14 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
             MenuManagerQuads_ROLLOUT.btnResetQuads \
             menu_tree_height
 
-        /* Keep the shared subrollout slot 64 px taller than its tallest child. */
+        /* Keep the source panel scrollable within the space below the action buttons. */
         local tallest_rollout_height = MenuManagerMacros_ROLLOUT.height
         if MenuManagerQuads_ROLLOUT.height > tallest_rollout_height then
         (
             tallest_rollout_height = MenuManagerQuads_ROLLOUT.height
         )
-        sr_menu_sections.height = tallest_rollout_height + 64
-
-        btnSaveSources.pos = [12, footer_y]
-        btnRefresh.pos = [204, footer_y]
-        lblIniInfo.pos = [12, footer_y + 36]
+        local available_height = dialog_height - sr_menu_sections.pos.y - 8
+        sr_menu_sections.height = amin (tallest_rollout_height + 64) available_height
     )
 
     /* Fit the dialog to the currently expanded menu panel.
@@ -1194,13 +1187,13 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         local dialog_size = getDialogSize MenuManagerUI_ROLLOUT
         if dialog_size == undefined then return false
 
-        /* Fit the taller child, its 64 px margin, and the footer below the slot. */
+        /* Fit the taller child and its margin below the action buttons. */
         local tallest_rollout_height = MenuManagerMacros_ROLLOUT.height
         if MenuManagerQuads_ROLLOUT.height > tallest_rollout_height then
         (
             tallest_rollout_height = MenuManagerQuads_ROLLOUT.height
         )
-        local target_height = (ceil (tallest_rollout_height + 224)) as integer
+        local target_height = (ceil (tallest_rollout_height + sr_menu_sections.pos.y + 76)) as integer
         local screen_height_limit = target_height
 
         try
@@ -1419,7 +1412,6 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
             catch
             (
                 format "Menu Manager: could not parse macroscripts at %: %\n" source_path (getCurrentException())
-                lblIniInfo.text = "ERROR: cannot parse selected MacroScript source. See MAXScript Listener."
             )
         )
 
@@ -1493,12 +1485,11 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         if saved_ok then
         (
             source_lists_dirty = false
-            lblIniInfo.text = "Saved: " + MenuManagerSourceSettings.ini_file_path
         )
         else
         (
             source_lists_dirty = true
-            lblIniInfo.text = "ERROR: source paths were not saved. See MAXScript Listener."
+            format "Menu Manager: source paths were not saved to %.\n" MenuManagerSourceSettings.ini_file_path
         )
 
         saved_ok -- return
@@ -1593,19 +1584,6 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         visible_count -- return
     )
 
-    /* Refresh both trees from the configured menu manager instance.
-       Used by the Refresh button and after Settings are applied.
-    */
-    function refreshSources =
-    (
-        updateQuadData()
-        refreshSourceLists()
-        MenuManagerUICallbacks.buildMacroTree quad_data MenuManagerQuads_ROLLOUT.tv_quads
-        refreshInstalledStates()
-        updateTreeLayout()
-        fitDialogToOpenRollout()
-    )
-
     on MenuManagerUI_ROLLOUT open do
     (
         addSubRollout sr_menu_sections MenuManagerMacros_ROLLOUT rolledUp:false
@@ -1695,13 +1673,41 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         menus_editor_button.Text = "MENUS EDITOR"
         quads_editor_button.Text = "QUADS EDITOR"
 
+        /* Use dark action buttons with green install and red reset text.
+        */
+        local action_button_font = dotNetObject "System.Drawing.Font" "Segoe UI" 9.0 (dotNetClass "System.Drawing.FontStyle").Bold
+        local action_button_styles = #(
+            #(MenuManagerMacros_ROLLOUT.btnInstallMenus, #(104, 240, 141)),
+            #(MenuManagerMacros_ROLLOUT.btnResetMenus, #(255, 115, 120)),
+            #(MenuManagerQuads_ROLLOUT.btnInstallQuads, #(104, 240, 141)),
+            #(MenuManagerQuads_ROLLOUT.btnResetQuads, #(255, 115, 120))
+        )
+        for action_spec in action_button_styles do
+        (
+            local action_button = action_spec[1]
+            local text_rgb = action_spec[2]
+
+            action_button.UseVisualStyleBackColor = false
+            action_button.FlatStyle = (dotNetClass "System.Windows.Forms.FlatStyle").Flat
+            action_button.BackColor = drawing_color.FromArgb 68 68 68
+            action_button.FlatAppearance.BorderColor = drawing_color.FromArgb 120 120 120
+            action_button.FlatAppearance.BorderSize = 1
+            action_button.FlatAppearance.MouseOverBackColor = drawing_color.FromArgb 78 78 78
+            action_button.FlatAppearance.MouseDownBackColor = drawing_color.FromArgb 55 55 55
+            action_button.ForeColor = drawing_color.FromArgb text_rgb[1] text_rgb[2] text_rgb[3]
+            action_button.Font = action_button_font
+        )
+        MenuManagerMacros_ROLLOUT.btnInstallMenus.Text = "INSTALL SELECTED"
+        MenuManagerMacros_ROLLOUT.btnResetMenus.Text = "RESET MENUS"
+        MenuManagerQuads_ROLLOUT.btnInstallQuads.Text = "INSTALL SELECTED"
+        MenuManagerQuads_ROLLOUT.btnResetQuads.Text = "RESET QUADS"
+
         /* copy #noMap returns the array, unlike mapped copy (returns OK). */
         MenuManagerSourceSettings.loadSources()
         draft_macro_sources = copy MenuManagerSourceSettings.macro_sources #noMap
         draft_quad_sources = copy MenuManagerSourceSettings.quad_sources #noMap
         source_lists_dirty = false
         refreshSourceLists()
-        lblIniInfo.text = "INI: " + MenuManagerSourceSettings.ini_file_path
         updateQuadData()
         MenuManagerUICallbacks.buildMacroTree quad_data quad_tree
 		refreshInstalledStates()
@@ -1753,33 +1759,6 @@ rollout MenuManagerUI_ROLLOUT MenuManagerUIDialogTitle width:576 height:720
         (
             format "Menu Manager: cannot restart; launcher file is missing: %\n" MenuManagerUILauncherPath
         )
-    )
-
-    on btnSaveSources pressed do
-    (
-        try
-        (
-            if saveDraftSources() then
-            (
-                MenuManagerSourceSettings.applySources()
-                refreshSources()
-                lblIniInfo.text = "Saved: " + MenuManagerSourceSettings.ini_file_path
-            )
-            else
-            (
-                messageBox ("Source settings could not be saved to:\n" + MenuManagerSourceSettings.ini_file_path + "\n\nSee MAXScript Listener.") title:"Menu Manager"
-            )
-        )
-        catch
-        (
-            format "Menu Manager source settings failed: %\n" (getCurrentException())
-            messageBox "Failed to save or apply source settings. See MAXScript Listener." title:"Menu Manager"
-        )
-    )
-
-    on btnRefresh pressed do
-    (
-        refreshSources()
     )
 
 )
